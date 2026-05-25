@@ -13,7 +13,7 @@ class Bridge implements BridgeInterface
     $config = Config::extract('scheduler');
     $console = $app->get_service('console');
 
-    $scheduler = new Scheduler($app, $config, $console);
+    $scheduler = new Scheduler($config, $console);
 
     $app->set_service('scheduler', $scheduler);
   }

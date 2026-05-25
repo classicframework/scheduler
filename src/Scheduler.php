@@ -2,17 +2,13 @@
 
 namespace classicframework\scheduler;
 
-use classicframework\core\App;
-
 class Scheduler
 {
-  protected $app = null;
   protected $config = array();
   protected $console = null;
 
-  public function __construct(App $app, $config = array(), $console = null)
+  public function __construct($config = array(), $console = null)
   {
-    $this->app = $app;
     $this->config = is_array($config) ? $config : array();
     $this->console = $console;
   }
@@ -45,7 +41,7 @@ class Scheduler
         continue;
       }
 
-      register_shutdown_function(array($this, 'unlock'), $name);
+      // register_shutdown_function(array($this, 'unlock'), $name);
 
       try {
         $code = $this->run_command($task);
@@ -102,7 +98,7 @@ class Scheduler
 
   protected function last_run($name)
   {
-    $file = $this->state_path() . '/' . $this->safe_name($name) . '.last';
+    $file = $this->state_path() . DIRECTORY_SEPARATOR . $this->safe_name($name) . '.last';
 
     if (!is_file($file)) {
       return 0;
@@ -113,15 +109,9 @@ class Scheduler
 
   protected function save_last_run($name)
   {
-    $file = $this->state_path() . '/' . $this->safe_name($name) . '.last';
+    $file = $this->state_path() . DIRECTORY_SEPARATOR . $this->safe_name($name) . '.last';
 
-    $result = @file_put_contents($file, (string) time());
-
-    if ($result === false) {
-      return false;
-    }
-
-    return true;
+    return @file_put_contents($file, (string) time()) !== false;
   }
 
   protected function lock($name)
@@ -132,7 +122,6 @@ class Scheduler
       $max_age = isset($this->config['lock_timeout']) ? (int) $this->config['lock_timeout'] : 3600;
       $modified = filemtime($path);
 
-      // if ($modified !== false && $modified + $max_age < time()) {
       if ($modified === false || $modified + $max_age < time()) {
         @rmdir($path);
       } else {
@@ -141,6 +130,7 @@ class Scheduler
     }
 
     clearstatcache();
+
     return @mkdir($path, 0777, true);
   }
 
@@ -157,14 +147,16 @@ class Scheduler
 
   protected function lock_path($name)
   {
-    return $this->state_path() . '/' . $this->safe_name($name) . '.lock';
+    return $this->state_path() . DIRECTORY_SEPARATOR . $this->safe_name($name) . '.lock';
   }
 
   protected function state_path()
   {
-    $path = isset($this->config['state_path']) && (string) $this->config['state_path'] !== ''
-      ? (string) $this->config['state_path']
-      : APP_PATH . '/tmp/scheduler';
+    if (isset($this->config['state_path']) && (string) $this->config['state_path'] !== '') {
+      $path = rtrim((string) $this->config['state_path'], '/\\');
+    } else {
+      $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'classicframework_scheduler';
+    }
 
     if (!is_dir($path)) {
       if (!@mkdir($path, 0777, true)) {
@@ -172,12 +164,13 @@ class Scheduler
       }
     }
 
-    return rtrim($path, '/\\');
+    return $path;
   }
 
   protected function safe_name($name)
   {
     $name = preg_replace('/[^a-zA-Z0-9_]+/', '_', (string) $name);
+
     return strtolower(trim($name, '_'));
   }
 }
